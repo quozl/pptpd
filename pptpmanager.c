@@ -483,7 +483,12 @@ static void connectCall(int clientSocket, int clientNumber)
          * speed and option file on the command line.
          */
 
+#ifdef HAVE_SETPROCTITLE
+        ctrl_argv[pptpctrl_argc++] = PPTP_CTRL_BIN;
+#else
+        /* Add some padding so the forked process can change the title */
         ctrl_argv[pptpctrl_argc++] = PPTP_CTRL_BIN "                                ";
+#endif
 
         /* Pass socket as stdin */
         if (clientSocket != 0) {
