@@ -237,6 +237,9 @@ static void showusage(char *prog)
   printf(" for broadcast packets. When it receives the packets, it will then re-broadcast the packet.\n\n");
   printf("Usage: %s [options], where options are:\n\n", prog);
   printf(" [-d] [--daemon]           Run as daemon.\n");
+  printf(" [-p] [--pidfile <file>]   Write process ID to file if run as daemon.\n");
+  printf("                           (default is %s).\n",
+         PIDFILE_BCRELAY_DEFAULT);
   printf(" [-h] [--help]             Displays this help message.\n");
   printf(" [-i] [--incoming <ifin>]  Defines from which interface broadcasts will be relayed.\n");
   printf(" [-n] [--nolog]            No logging/tracing to /var/log/messages.\n");
@@ -325,6 +328,7 @@ int main(int argc, char **argv) {
   int c;
   char *ifout = empty;
   char *ifin = empty;
+  char *pidfile = empty;
 
 #ifndef BCRELAY
   fprintf(stderr,
@@ -343,6 +347,7 @@ int main(int argc, char **argv) {
       {
         {"nolog", 0, 0, 0},
         {"daemon", 0, 0, 0},
+        {"pidfile", 1, 0, 0},
         {"help", 0, 0, 0},
         {"incoming", 1, 0, 0},
         {"outgoing", 1, 0, 0},
@@ -351,18 +356,21 @@ int main(int argc, char **argv) {
         {0, 0, 0, 0}
       };
 
-    c = getopt_long(argc, argv, "ndhi:o:s:v", long_options, &option_index);
+    c = getopt_long(argc, argv, "ndp:hi:o:s:v", long_options, &option_index);
     if (c == -1)
       break;
     /* convert long options to short form */
     if (c == 0)
-      c = "ndhiosv"[option_index];
+      c = "ndphiosv"[option_index];
     switch (c) {
     case 'n':
       vnologging = 1;
       break;
     case 'd':
       vdaemon = 1;
+      break;
+    case 'p':
+      pidfile = strdup(optarg);
       break;
     case 'h':
       showusage(argv[0]);
@@ -412,6 +420,7 @@ int main(int argc, char **argv) {
 
   // If specified, become Daemon.
   if (vdaemon) {
+    FILE *fd;
 #if HAVE_DAEMON
     closelog();
     if (freopen("/dev/null", "r", stdin) == NULL) {
@@ -430,10 +439,23 @@ int main(int argc, char **argv) {
      * never returns if HAVE_FORK (re-execs without -d)
      */
 #endif
+    if (pidfile == empty)
+      pidfile = PIDFILE_BCRELAY_DEFAULT;
+    fd = fopen(pidfile, "w");
+    if (fd != NULL) {
+      fprintf(fd, "%lu\n", getpid());
+      fclose(fd);
+    } else {
+      syslog(LOG_ERR, "failed to open pidfile %s\n", pidfile);
+    }
   } else {
     syslog(LOG_INFO, "Running as child\n");
   }
   mainloop(argc,argv);
+  if (vdaemon) {
+    if (unlink(pidfile))
+      syslog(LOG_ERR, "failed to remove pidfile %s\n", pidfile);
+  }
   _exit(0);
 }
 
