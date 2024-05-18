@@ -1,4 +1,4 @@
-AC_INIT([pptpd],[1.4.0])
+AC_INIT([pptpd],[1.5.0])
 AC_CONFIG_SRCDIR([pptpmanager.c])
 
 AC_CONFIG_HEADERS([config.h])
